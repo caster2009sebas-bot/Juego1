@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adiviname - Con Niveles Extremos</title>
+    <!-- Incluye Tailwind CSS para un diseño moderno y responsive -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Un gris muy claro */
+            overflow: hidden; /* Evita que la animación del fondo cree una barra de desplazamiento */
+        }
+
+        .lupa-icon {
+            width: 100px;
+            height: 100px;
+            fill: none;
+            stroke: #4b5563; /* Gris oscuro para el icono */
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /* Estilo para los botones de opción */
+        .option-button {
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        .option-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+
+        .option-button.correct {
+            background-color: #34d399; /* Verde para respuesta correcta */
+            color: white;
+            animation: pulse-correct 0.5s ease-in-out;
+        }
+
+        .option-button.incorrect {
+            background-color: #ef4444; /* Rojo para respuesta incorrecta */
+            color: white;
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes pulse-correct {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+            100% { transform: translateX(0); }
+        }
+
+        /* Oculta los elementos que no se usan inicialmente */
+        #game-screen {
+            display: none;
+        }
+
+        /* Estilo del cronómetro */
+        #timer-display {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #4b5563;
+            margin-bottom: 1rem;
+            transition: color 0.3s ease;
+        }
+
+        #timer-display.low-time {
+            color: #ef4444; /* Rojo cuando el tiempo es bajo */
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* Animaciones para la transición entre adivinanzas */
+        .fade-out {
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        .fade-in {
+            opacity: 1;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        /* Estilo del modal de nivel completado */
+        .level-modal {
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        .modal-content {
+            transform: scale(0.95);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .level-modal.show .modal-content {
+            transform: scale(1);
+        }
+
+        /* Animación de fondo */
+        .animated-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: linear-gradient(45deg, #a8c0ff, #3f2b96, #ee9ca7, #ffdde1);
+            background-size: 400% 400%;
+            animation: gradient-animation 15s ease infinite;
+        }
+
+        @keyframes gradient-animation {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Contenedor del fondo animado -->
+    <div class="animated-background"></div>
+
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="w-full max-w-xl bg-white rounded-2xl shadow-xl p-8 md:p-12 text-center relative z-10">
+            <!-- Pantalla de Inicio -->
+            <div id="splash-screen">
+                <h1 class="text-5xl md:text-6xl font-bold text-gray-800 mb-4">Adiviname</h1>
+                <svg class="lupa-icon mx-auto mb-8" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M11 19C15.4183 19 19 15.4183 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19Z" />
+                    <path d="M21 21L16.65 16.65" />
+                </svg>
+                <button id="start-btn" class="w-full md:w-auto px-10 py-4 bg-gray-800 text-white font-bold rounded-full hover:bg-gray-700 transition duration-300 transform hover:scale-105">
+                    ¡Comenzar a Jugar!
+                </button>
+            </div>
+
+            <!-- Pantalla del Juego -->
+            <div id="game-screen">
+                <div class="flex justify-between items-center mb-6">
+                    <span id="level-display" class="text-lg md:text-xl font-medium text-gray-600">Nivel 1</span>
+                    <span id="score-display" class="text-lg md:text-xl font-medium text-gray-600">Puntos: 0</span>
+                </div>
+                <!-- Cronómetro -->
+                <div id="timer-display" class="text-3xl font-bold mb-4">20</div>
+
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-800 mb-6" id="riddle-question"></h2>
+                
+                <div id="options-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Los botones de opciones se generarán aquí con JavaScript -->
+                </div>
+
+                <p id="feedback-message" class="mt-8 text-xl font-semibold min-h-[3rem]"></p>
+
+                <button id="next-riddle-btn" class="mt-6 px-10 py-4 bg-gray-800 text-white font-bold rounded-full hover:bg-gray-700 transition duration-300 transform hover:scale-105" style="display: none;">
+                    Siguiente
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para el cambio de nivel -->
+    <div id="level-modal" class="level-modal hidden fixed inset-0 flex items-center justify-center p-4 z-50">
+        <div class="modal-content bg-white p-8 rounded-2xl shadow-2xl text-center max-w-sm w-full">
+            <h3 id="modal-title" class="text-3xl font-bold text-gray-800 mb-2">¡Nivel Completado!</h3>
+            <p id="modal-message" class="text-lg text-gray-600 mb-6">¡Prepárate para el siguiente desafío!</p>
+            <button id="modal-close-btn" class="px-8 py-3 bg-gray-800 text-white font-bold rounded-full hover:bg-gray-700 transition duration-300">
+                Continuar
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal de Fin de Juego por Errores -->
+    <div id="game-over-modal" class="level-modal hidden fixed inset-0 flex items-center justify-center p-4 z-50">
+        <div class="modal-content bg-red-100 p-8 rounded-2xl shadow-2xl text-center max-w-sm w-full border-4 border-red-500">
+            <h3 class="text-3xl font-bold text-red-700 mb-2">¡Fin del Juego!</h3>
+            <p class="text-lg text-red-600 mb-6">Has cometido 3 errores en este nivel. ¡Más suerte la próxima vez!</p>
+            <button id="restart-btn" class="px-8 py-3 bg-red-700 text-white font-bold rounded-full hover:bg-red-600 transition duration-300">
+                Reiniciar
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Array de adivinanzas con opciones múltiples y la respuesta correcta
+        const riddles = [
+            // Nivel 1: Naturaleza y Elementos
+            { level: 1, theme: "Naturaleza", question: "Cuando sube, la falda le baja. ¿Qué es?", answer: "la cremallera", options: ["la bandera", "la cremallera", "el mar", "la marea"] },
+            { level: 1, question: "En el mar no me mojo, en el fuego no me quemo. ¿Qué soy?", answer: "la sombra", options: ["la sombra", "el agua", "el viento", "el sol"] },
+            { level: 1, question: "Tiene una boca, pero no habla. Se mueve sin tener pies. ¿Qué es?", answer: "el río", options: ["el río", "el camino", "el viento", "la sombra"] },
+            { level: 1, question: "Canto en la orilla, vivo en el agua, no soy pescado ni soy cigarra. ¿Quién soy?", answer: "la rana", options: ["la rana", "el sapo", "la tortuga", "el pez"] },
+            { level: 1, question: "El agua la tiene, el mar la contiene. ¿Qué es?", answer: "la sal", options: ["la sal", "el pez", "la espuma", "la arena"] },
+
+            // Nivel 2: Cosas Cotidianas
+            { level: 2, theme: "Cosas Cotidianas", question: "Siempre estoy en la mitad de la sala. ¿Qué soy?", answer: "la letra L", options: ["la silla", "la letra L", "la mesa", "la puerta"] },
+            { level: 2, question: "Mientras más se mojan, más seca soy. ¿Qué soy?", answer: "una toalla", options: ["una esponja", "una toalla", "un paño", "un trapo"] },
+            { level: 2, question: "En un cuarto de casa, sin moverme, camino y camino sin parar. ¿Qué soy?", answer: "el reloj", options: ["el reloj", "la brújula", "el tren", "el coche"] },
+            { level: 2, question: "Blanca por dentro, verde por fuera. Si quieres que te lo diga, espera. ¿Qué es?", answer: "la pera", options: ["la pera", "el coco", "la manzana", "el aguacate"] },
+            { level: 2, question: "Entro en tu casa, pero no te molesto. ¿Qué soy?", answer: "la llave", options: ["la llave", "el gato", "el perro", "la mosca"] },
+
+            // Nivel 3: Doble Sentido - Fácil
+            { level: 3, theme: "Doble Sentido - Fácil", question: "Es largo y lo tengo en la mano, a veces lo chupo. ¿Qué es?", answer: "el caramelo", options: ["el dedo", "el helado", "el cigarro", "el caramelo"] },
+            { level: 3, question: "Tiene un solo ojo y una larga cola, se mete en un agujero y al final del camino se le levanta el cabello. ¿Qué soy?", answer: "la aguja y el hilo", options: ["el gusano", "la aguja y el hilo", "la jeringa", "la llave"] },
+            { level: 3, question: "Se come al principio y se mastica. ¿Qué es?", answer: "la carne", options: ["la carne", "el chicle", "el helado", "la fruta"] },
+            { level: 3, question: "Cuando lo pones, se te para. Cuando te lo quitas, se te cae. ¿Qué es?", answer: "el calcetín", options: ["el calcetín", "la gorra", "el reloj", "el pantalón"] },
+            { level: 3, question: "Me la quitas si te molesto, y la devuelves cuando me necesitas. ¿Qué soy?", answer: "la silla", options: ["la silla", "la mochila", "la gorra", "la bufanda"] },
+
+            // Nivel 4: Doble Sentido - Intermedio
+            { level: 4, theme: "Doble Sentido - Intermedio", question: "Se le mete duro, se le saca blando. ¿Qué es?", answer: "el chicle", options: ["la bola de nieve", "el chicle", "el barro", "el pan"] },
+            { level: 4, question: "Hay quienes tienen dos, y otros que tienen tres, ¿cuál es el animal que tiene la mejor cola?", answer: "el caballo", options: ["el perro", "el gato", "el caballo", "el león"] },
+            { level: 4, question: "Es redonda y tiene un hueco, si la usas con cuidado no hace daño. ¿Qué es?", answer: "la rosquilla", options: ["la rosquilla", "la sortija", "la canasta", "la moneda"] },
+            { level: 4, question: "Cuanto más caliente y más se moja, más se pone dura. ¿Qué es?", answer: "la toalla", options: ["el pan", "la toalla", "el paño", "el trapo"] },
+            { level: 4, question: "Tiene pelos por fuera y un hueco por dentro. ¿Qué es?", answer: "el cepillo de dientes", options: ["el cepillo de dientes", "el vaso", "la botella", "el espejo"] },
+            { level: 4, question: "A veces lo tengo duro, y a veces lo tengo blando. ¿Qué es?", answer: "el lápiz", options: ["el lápiz", "la goma", "el papel", "el libro"] },
+
+            // Nivel 5: Doble Sentido - Extremo
+            { level: 5, theme: "Doble Sentido - Extremo", question: "No tiene cuerpo pero tiene un buen culo. ¿Qué es?", answer: "la cama", options: ["la cama", "la silla", "el sillón", "la mesa"] },
+            { level: 5, question: "Te lo doy, te lo quito, te lo pongo y no me das las gracias. ¿Qué es?", answer: "el anillo", options: ["la amistad", "el tiempo", "el dinero", "el anillo"] },
+            { level: 5, question: "Tengo un solo ojo, y me usan para hacer un hoyo en tu corazón. ¿Qué soy?", answer: "la aguja", options: ["la aguja", "la jeringa", "la pistola", "el clavo"] },
+            { level: 5, question: "Sin mi, no puedes ir al baño, pero si me usas mucho me canso. ¿Qué soy?", answer: "la pierna", options: ["la pierna", "la cabeza", "la mano", "el pie"] },
+            { level: 5, question: "Es largo, negro, duro y se mete y se saca. ¿Qué es?", answer: "el palo de la escoba", options: ["el palo de la escoba", "el dedo", "el lápiz", "el bolígrafo"] },
+            { level: 5, question: "Es grande y huele mal. ¿Qué es?", answer: "el basurero", options: ["el basurero", "el calcetín", "el zapato", "el plato"] }
+        ];
+
+        let score = 0;
+        let answeredRiddlesInLevel = 0;
+        let wrongAnswersInLevel = 0; // Nueva variable para contar errores
+        let currentLevel = 1;
+        let timer;
+        let timeLeft = 20;
+        const timeLimit = 20; // Segundos por adivinanza
+
+        // Referencias a los elementos del DOM
+        const splashScreen = document.getElementById('splash-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const startBtn = document.getElementById('start-btn');
+        const riddleQuestion = document.getElementById('riddle-question');
+        const optionsContainer = document.getElementById('options-container');
+        const feedbackMessage = document.getElementById('feedback-message');
+        const nextRiddleBtn = document.getElementById('next-riddle-btn');
+        const scoreDisplay = document.getElementById('score-display');
+        const levelDisplay = document.getElementById('level-display');
+        const timerDisplay = document.getElementById('timer-display');
+        const levelModal = document.getElementById('level-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalMessage = document.getElementById('modal-message');
+        const modalCloseBtn = document.getElementById('modal-close-btn');
+        const gameOverModal = document.getElementById('game-over-modal');
+        const restartBtn = document.getElementById('restart-btn');
+
+        /**
+         * Inicia el cronómetro.
+         */
+        function startTimer() {
+            timeLeft = timeLimit;
+            timerDisplay.textContent = timeLeft;
+            timerDisplay.classList.remove('low-time');
+            timer = setInterval(() => {
+                timeLeft--;
+                timerDisplay.textContent = timeLeft;
+
+                if (timeLeft <= 5) {
+                    timerDisplay.classList.add('low-time');
+                }
+
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    const currentRiddle = riddles.filter(r => r.level === currentLevel)[answeredRiddlesInLevel];
+                    checkAnswer(null, currentRiddle.answer); // El tiempo se acabó, respuesta nula
+                }
+            }, 1000);
+        }
+
+        /**
+         * Carga una nueva adivinanza en la pantalla con animaciones.
+         */
+        function loadRiddle() {
+            gameScreen.classList.add('fade-out');
+
+            // Retraso para permitir la animación de salida
+            setTimeout(() => {
+                const currentLevelRiddles = riddles.filter(r => r.level === currentLevel);
+                
+                // Muestra el tema del nivel en el display
+                const theme = currentLevelRiddles[0]?.theme || `Nivel ${currentLevel}`;
+                levelDisplay.textContent = `${theme} - Nivel ${currentLevel}`;
+                
+                if (answeredRiddlesInLevel < currentLevelRiddles.length) {
+                    const riddle = currentLevelRiddles[answeredRiddlesInLevel];
+                    riddleQuestion.textContent = riddle.question;
+                    optionsContainer.innerHTML = '';
+                    feedbackMessage.textContent = '';
+                    feedbackMessage.className = 'mt-8 text-xl font-semibold min-h-[3rem]';
+                    nextRiddleBtn.style.display = 'none';
+
+                    // Crea los botones para cada opción
+                    riddle.options.forEach(option => {
+                        const button = document.createElement('button');
+                        button.textContent = option;
+                        button.className = 'option-button w-full px-4 py-4 text-lg text-gray-800 bg-gray-100 rounded-full font-medium transition duration-200';
+                        button.addEventListener('click', () => checkAnswer(option, riddle.answer));
+                        optionsContainer.appendChild(button);
+                    });
+                    startTimer();
+                } else {
+                    // Si el jugador ha completado el nivel, avanzarlo
+                    currentLevel++;
+                    answeredRiddlesInLevel = 0;
+                    wrongAnswersInLevel = 0; // Reinicia el contador de errores
+                    // Si ya no hay más niveles, mostrar un mensaje de fin de juego
+                    if (riddles.filter(r => r.level === currentLevel).length === 0) {
+                        endGame(true);
+                        return;
+                    } else {
+                        showLevelModal(`¡Felicidades! Has completado el Nivel ${currentLevel - 1}!`, `Prepárate para el siguiente desafío: Nivel ${currentLevel}`);
+                        levelDisplay.textContent = `Nivel ${currentLevel}`;
+                        loadRiddle();
+                    }
+                }
+
+                gameScreen.classList.remove('fade-out');
+                gameScreen.classList.add('fade-in');
+            }, 500); // Duración de la animación de salida
+        }
+
+        /**
+         * Comprueba si la respuesta seleccionada es correcta.
+         * @param {string} selectedOption - La opción seleccionada por el usuario o null si el tiempo se acabó.
+         * @param {string} correctAnswer - La respuesta correcta.
+         */
+        function checkAnswer(selectedOption, correctAnswer) {
+            clearInterval(timer); // Detiene el temporizador
+            const optionButtons = document.querySelectorAll('.option-button');
+            let isCorrect = false;
+
+            optionButtons.forEach(button => {
+                button.disabled = true; // Deshabilita todos los botones de opción
+                if (button.textContent.toLowerCase() === correctAnswer.toLowerCase()) {
+                    button.classList.add('correct');
+                }
+            });
+
+            if (selectedOption && selectedOption.toLowerCase() === correctAnswer.toLowerCase()) {
+                feedbackMessage.textContent = "¡Correcto!";
+                feedbackMessage.className += ' text-green-600';
+                isCorrect = true;
+                score += 10; // Suma 10 puntos por respuesta correcta
+            } else {
+                wrongAnswersInLevel++; // Incrementa el contador de errores
+                if (selectedOption) {
+                    feedbackMessage.textContent = `¡Incorrecto! La respuesta correcta era: ${correctAnswer}`;
+                    feedbackMessage.className += ' text-red-600';
+                    const incorrectButton = document.querySelector(`.option-button[data-option="${selectedOption}"]`);
+                    if (incorrectButton) {
+                        incorrectButton.classList.add('incorrect');
+                    }
+                } else {
+                    // Si el tiempo se acabó
+                    feedbackMessage.textContent = `¡Tiempo agotado! La respuesta correcta era: ${correctAnswer}`;
+                    feedbackMessage.className += ' text-red-600';
+                }
+                score = Math.max(0, score - 5); // Resta puntos por respuesta incorrecta o tiempo agotado
+            }
+            
+            scoreDisplay.textContent = `Puntos: ${score}`;
+
+            // Revisa si el jugador ha perdido
+            if (wrongAnswersInLevel >= 3) {
+                endGame(false);
+                return;
+            }
+
+            answeredRiddlesInLevel++;
+            nextRiddleBtn.style.display = 'block';
+        }
+
+        /**
+         * Muestra un modal con un mensaje.
+         * @param {string} title - El título del modal.
+         * @param {string} message - El mensaje del modal.
+         */
+        function showLevelModal(title, message) {
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+            levelModal.classList.remove('hidden');
+            levelModal.classList.add('show');
+            
+            // Ocultar el modal al hacer clic en el botón de cerrar
+            modalCloseBtn.onclick = () => {
+                levelModal.classList.remove('show');
+                levelModal.classList.add('hidden');
+                loadRiddle(); // Carga la siguiente adivinanza después de cerrar el modal
+            };
+        }
+
+        /**
+         * Maneja el fin del juego cuando se completan todas las adivinanzas o se pierde por errores.
+         * @param {boolean} didWin - True si el jugador ganó, false si perdió.
+         */
+        function endGame(didWin) {
+            clearInterval(timer); // Detiene el temporizador final
+            if (didWin) {
+                riddleQuestion.textContent = "¡Felicidades, has completado todas las adivinanzas!";
+                feedbackMessage.textContent = `Tu puntuación final es: ${score}.`;
+                feedbackMessage.className = 'mt-8 text-xl font-semibold text-gray-800';
+            } else {
+                gameOverModal.classList.remove('hidden');
+                gameOverModal.classList.add('show');
+                restartBtn.onclick = () => {
+                    location.reload(); // Recarga la página para reiniciar el juego
+                };
+            }
+            optionsContainer.innerHTML = '';
+            nextRiddleBtn.style.display = 'none';
+        }
+
+        // Event Listeners
+        startBtn.addEventListener('click', () => {
+            splashScreen.style.display = 'none';
+            gameScreen.style.display = 'block';
+            loadRiddle();
+        });
+
+        nextRiddleBtn.addEventListener('click', () => {
+            loadRiddle();
+        });
+    </script>
+</body>
+</html>
+
